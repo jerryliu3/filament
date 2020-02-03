@@ -30,6 +30,7 @@ clean.doFirst {
 
 android {
     compileSdkVersion versions.compileSdk
+    ndkVersion "20.0.5594570"
     defaultConfig {
         applicationId "com.google.android.filament.hellocamera"
         minSdkVersion versions.minSdk

@@ -54,10 +54,14 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    ndkVersion '21.0.6113669'
 }
 
 dependencies {
     implementation deps.androidx.annotations
+    implementation project(path: ':filament-android')
+    implementation project(path: ':filament-utils-android')
+    implementation project(path: ':gltfio-android')
 }
 
 apply from: rootProject.file('gradle/gradle-mvn-push.gradle')

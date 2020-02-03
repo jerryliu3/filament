@@ -1,4 +1,4 @@
-// Libraries
+include ':filamat-20200127-full-android'// Libraries
 include ':filament-android'
 include ':filamat-android'
 include ':gltfio-android'

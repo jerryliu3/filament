@@ -45,6 +45,7 @@ android {
     packagingOptions {
         exclude 'lib/*/libfilament-jni.so'
     }
+    ndkVersion '21.0.6113669'
 }
 
 dependencies {

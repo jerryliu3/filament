@@ -321,13 +321,13 @@ class MainActivity : Activity() {
                 tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
             }
         })
-        animator.start()
+        //animator.start()
     }
 
     override fun onResume() {
         super.onResume()
         choreographer.postFrameCallback(frameScheduler)
-        animator.start()
+        //animator.start()
     }
 
     override fun onPause() {

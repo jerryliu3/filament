@@ -14,6 +14,8 @@ clean.doFirst {
 
 android {
     compileSdkVersion versions.compileSdk
+    ndkVersion "20.0.5594570"
+
     defaultConfig {
         applicationId "com.google.android.filament.hellotriangle"
         minSdkVersion versions.minSdk

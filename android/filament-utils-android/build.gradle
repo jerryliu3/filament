@@ -49,6 +49,7 @@ android {
         exclude 'lib/*/libfilament-jni.so'
         exclude 'lib/*/libgltfio-jni.so'
     }
+    ndkVersion '21.0.6113669'
 }
 
 dependencies {
