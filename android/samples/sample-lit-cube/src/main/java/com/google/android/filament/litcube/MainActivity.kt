@@ -17,22 +17,28 @@
 package com.google.android.filament.litcube
 
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Context
 import android.opengl.Matrix
 import android.os.Bundle
 import android.view.Choreographer
+import android.view.LayoutInflater
 import android.view.Surface
 import android.view.SurfaceView
 import android.view.animation.LinearInterpolator
-
+import android.widget.SeekBar
+import androidx.constraintlayout.widget.ConstraintLayout
 import com.google.android.filament.*
-import com.google.android.filament.RenderableManager.*
-import com.google.android.filament.VertexBuffer.*
+import com.google.android.filament.RenderableManager.PrimitiveType
+import com.google.android.filament.VertexBuffer.AttributeType
+import com.google.android.filament.VertexBuffer.VertexAttribute
 import com.google.android.filament.android.UiHelper
-
+import java.lang.reflect.Constructor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.Channels
+
 
 class MainActivity : Activity() {
     // Make sure to initialize Filament first
@@ -80,10 +86,12 @@ class MainActivity : Activity() {
 
     private val animator = ValueAnimator.ofFloat(0.0f, 360.0f)
 
+    @SuppressLint("ServiceCast")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         surfaceView = SurfaceView(this)
+
         setContentView(surfaceView)
 
         choreographer = Choreographer.getInstance()
@@ -92,6 +100,17 @@ class MainActivity : Activity() {
         setupFilament()
         setupView()
         setupScene()
+
+        //var layout: ConstraintLayout = findViewById(R.id.slider_layout) as ConstraintLayout
+        var seekbar = findViewById(R.id.seekBar) as SeekBar
+
+        var inflater = this.getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
+        val rowView: View = inflater.inflate(0, surfaceView, false)
+
+        setContentView(R.layout.slider_layout)
+        val parent = ConstraintLayout(this)
+        parent.addView(view);
+
     }
 
     private fun setupSurfaceView() {
@@ -102,6 +121,8 @@ class MainActivity : Activity() {
         // uiHelper.setDesiredSize(1280, 720)
 
         uiHelper.attachTo(surfaceView)
+
+
     }
 
     private fun setupFilament() {
@@ -117,6 +138,7 @@ class MainActivity : Activity() {
         // Setting up a clear color is useful for debugging but usually
         // unnecessary when using a skybox
         view.setClearColor(0.035f, 0.035f, 0.035f, 1.0f)
+
 
         // NOTE: Try to disable post-processing (tone-mapping, etc.) to see the difference
         // view.isPostProcessingEnabled = false
@@ -321,13 +343,13 @@ class MainActivity : Activity() {
                 tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
             }
         })
-        //animator.start()
+        animator.start()
     }
 
     override fun onResume() {
         super.onResume()
         choreographer.postFrameCallback(frameScheduler)
-        //animator.start()
+        animator.start()
     }
 
     override fun onPause() {
