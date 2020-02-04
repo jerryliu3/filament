@@ -21,18 +21,20 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.opengl.Matrix
+import android.os.Build
 import android.os.Bundle
-import android.view.Choreographer
-import android.view.LayoutInflater
-import android.view.Surface
-import android.view.SurfaceView
+import android.view.*
 import android.view.animation.LinearInterpolator
+import android.widget.FrameLayout
 import android.widget.SeekBar
+import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.constraintlayout.widget.ConstraintLayout
 import com.google.android.filament.*
 import com.google.android.filament.RenderableManager.PrimitiveType
 import com.google.android.filament.VertexBuffer.AttributeType
 import com.google.android.filament.VertexBuffer.VertexAttribute
+import com.google.android.filament.View
 import com.google.android.filament.android.UiHelper
 import java.lang.reflect.Constructor
 import java.nio.ByteBuffer
@@ -86,22 +88,36 @@ class MainActivity : Activity() {
 
     private val animator = ValueAnimator.ofFloat(0.0f, 360.0f)
 
+    @RequiresApi(Build.VERSION_CODES.JELLY_BEAN)
     @SuppressLint("ServiceCast")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         surfaceView = SurfaceView(this)
 
-        setContentView(surfaceView)
-
         choreographer = Choreographer.getInstance()
+
+        val textView = TextView(this).apply {
+            val d = resources.displayMetrics.density
+            text = "This TextView is under the Filament SurfaceView."
+            textSize = 32.0f
+            setPadding((16 * d).toInt(), 0, (16 * d).toInt(), 0)
+        }
+        setContentView(FrameLayout(this).apply {
+            addView(textView, FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER_VERTICAL
+            ))
+            addView(surfaceView)
+        })
 
         setupSurfaceView()
         setupFilament()
         setupView()
         setupScene()
 
-        //var layout: ConstraintLayout = findViewById(R.id.slider_layout) as ConstraintLayout
+        /*//var layout: ConstraintLayout = findViewById(R.id.slider_layout) as ConstraintLayout
         var seekbar = findViewById(R.id.seekBar) as SeekBar
 
         var inflater = this.getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
@@ -109,7 +125,7 @@ class MainActivity : Activity() {
 
         setContentView(R.layout.slider_layout)
         val parent = ConstraintLayout(this)
-        parent.addView(view);
+        parent.addView(view);*/
 
     }
 
@@ -117,8 +133,8 @@ class MainActivity : Activity() {
         uiHelper = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK)
         uiHelper.renderCallback = SurfaceCallback()
 
-        // NOTE: To choose a specific rendering resolution, add the following line:
-        // uiHelper.setDesiredSize(1280, 720)
+        // Make the render target transparent
+        uiHelper.isOpaque = false
 
         uiHelper.attachTo(surfaceView)
 
@@ -134,10 +150,8 @@ class MainActivity : Activity() {
     }
 
     private fun setupView() {
-        // Clear the background to middle-grey
-        // Setting up a clear color is useful for debugging but usually
-        // unnecessary when using a skybox
-        view.setClearColor(0.035f, 0.035f, 0.035f, 1.0f)
+        // make transparent
+        view.setClearColor(0.0f, 0.0f, 0.0f, 0.0f)
 
 
         // NOTE: Try to disable post-processing (tone-mapping, etc.) to see the difference

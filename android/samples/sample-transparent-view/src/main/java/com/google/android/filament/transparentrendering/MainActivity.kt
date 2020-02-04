@@ -27,7 +27,10 @@ import android.view.Surface
 import android.view.SurfaceView
 import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
+import android.widget.SeekBar
 import android.widget.TextView
+import android.widget.Toast
+import androidx.constraintlayout.widget.ConstraintLayout
 
 import com.google.android.filament.*
 import com.google.android.filament.RenderableManager.*
@@ -72,11 +75,14 @@ class MainActivity : Activity() {
     private lateinit var camera: Camera
 
     private lateinit var material: Material
+    private lateinit var materialInstance: MaterialInstance
+
     private lateinit var vertexBuffer: VertexBuffer
     private lateinit var indexBuffer: IndexBuffer
 
     // Filament entity representing a renderable object
     @Entity private var renderable = 0
+    @Entity private var light = 0
 
     // A swap chain is Filament's representation of a surface
     private var swapChain: SwapChain? = null
@@ -100,6 +106,30 @@ class MainActivity : Activity() {
             textSize = 32.0f
             setPadding((16 * d).toInt(), 0, (16 * d).toInt(), 0)
         }
+        var seekbar = SeekBar(this).apply{
+            val d = resources.displayMetrics.density
+            setPadding((32 * d).toInt(), 0, (32 * d).toInt(), 0)
+
+
+        }
+        seekbar?.setOnSeekBarChangeListener(object :
+                SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seek: SeekBar,
+                                           progress: Int, fromUser: Boolean) {
+                // write custom code for progress is changed
+            }
+
+            override fun onStartTrackingTouch(seek: SeekBar) {
+                // write custom code for progress is started
+            }
+
+            override fun onStopTrackingTouch(seek: SeekBar) {
+                // write custom code for progress is stopped
+                Toast.makeText(this@MainActivity,
+                        "Progress is: " + seek.progress + "%",
+                        Toast.LENGTH_SHORT).show()
+            }
+        })
 
         setContentView(FrameLayout(this).apply {
             addView(textView, FrameLayout.LayoutParams(
@@ -107,7 +137,9 @@ class MainActivity : Activity() {
                     FrameLayout.LayoutParams.WRAP_CONTENT,
                     Gravity.CENTER_VERTICAL
             ))
+            addView(seekbar)
             addView(surfaceView)
+
         })
 
         setupSurfaceView()
@@ -147,6 +179,7 @@ class MainActivity : Activity() {
 
     private fun setupScene() {
         loadMaterial()
+        setupMaterial()
         createMesh()
 
         // To create a renderable we first create a generic entity
@@ -154,56 +187,139 @@ class MainActivity : Activity() {
 
         // We then create a renderable component on that entity
         // A renderable is made of several primitives; in this case we declare only 1
+        // If we wanted each face of the cube to have a different material, we could
+        // declare 6 primitives (1 per face) and give each of them a different material
+        // instance, setup with different parameters
         RenderableManager.Builder(1)
                 // Overall bounding box of the renderable
-                .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.01f))
-                // Sets the mesh data of the first primitive
-                .geometry(0, PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer, 0, 3)
+                .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f))
+                // Sets the mesh data of the first primitive, 6 faces of 6 indices each
+                .geometry(0, PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer, 0, 6 * 6)
                 // Sets the material of the first primitive
-                .material(0, material.defaultInstance)
+                .material(0, materialInstance)
                 .build(engine, renderable)
 
         // Add the entity to the scene to render it
         scene.addEntity(renderable)
 
+
+        // We now need a light, let's create a directional light
+        light = EntityManager.get().create()
+
+        // Create a color from a temperature (5,500K)
+        val (r, g, b) = Colors.cct(5_500.0f)
+        LightManager.Builder(LightManager.Type.DIRECTIONAL)
+                .color(r, g, b)
+                // Intensity of the sun in lux on a clear day
+                .intensity(110_000.0f)
+                // The direction is normalized on our behalf
+                .direction(0.0f, -0.5f, -1.0f)
+                .castShadows(true)
+                .build(engine, light)
+
+        // Add the entity to the scene to light it
+        scene.addEntity(light)
+
+        // Set the exposure on the camera, this exposure follows the sunny f/16 rule
+        // Since we've defined a light that has the same intensity as the sun, it
+        // guarantees a proper exposure
+        camera.setExposure(16.0f, 1.0f / 125.0f, 100.0f)
+
+        // Move the camera back to see the object
+        camera.lookAt(0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
+
         startAnimation()
     }
 
     private fun loadMaterial() {
-        readUncompressedAsset("materials/baked_color.filamat").let {
+        readUncompressedAsset("materials/lit.filamat").let {
             material = Material.Builder().payload(it, it.remaining()).build(engine)
         }
     }
 
+    private fun setupMaterial() {
+        // Create an instance of the material to set different parameters on it
+        materialInstance = material.createInstance()
+        // Specify that our color is in sRGB so the conversion to linear
+        // is done automatically for us. If you already have a linear color
+        // you can pass it directly, or use Colors.RgbType.LINEAR
+        materialInstance.setParameter("baseColor", Colors.RgbType.SRGB, 1.0f, 0.85f, 0.57f)
+        // The default value is always 0, but it doesn't hurt to be clear about our intentions
+        // Here we are defining a dielectric material
+        materialInstance.setParameter("metallic", 0.0f)
+        // We increase the roughness to spread the specular highlights
+        materialInstance.setParameter("roughness", 0.3f)
+    }
+
     private fun createMesh() {
-        val intSize = 4
         val floatSize = 4
         val shortSize = 2
-        // A vertex is a position + a color:
-        // 3 floats for XYZ position, 1 integer for color
-        val vertexSize = 3 * floatSize + intSize
+        // A vertex is a position + a tangent frame:
+        // 3 floats for XYZ position, 4 floats for normal+tangents (quaternion)
+        val vertexSize = 3 * floatSize + 4 * floatSize
 
         // Define a vertex and a function to put a vertex in a ByteBuffer
-        data class Vertex(val x: Float, val y: Float, val z: Float, val color: Int)
+        @Suppress("ArrayInDataClass")
+        data class Vertex(val x: Float, val y: Float, val z: Float, val tangents: FloatArray)
         fun ByteBuffer.put(v: Vertex): ByteBuffer {
             putFloat(v.x)
             putFloat(v.y)
             putFloat(v.z)
-            putInt(v.color)
+            v.tangents.forEach { putFloat(it) }
             return this
         }
 
-        // We are going to generate a single triangle
-        val vertexCount = 3
-        val a1 = PI * 2.0 / 3.0
-        val a2 = PI * 4.0 / 3.0
+        // 6 faces, 4 vertices per face
+        val vertexCount = 6 * 4
+
+        // Create tangent frames, one per face
+        val tfPX = FloatArray(4)
+        val tfNX = FloatArray(4)
+        val tfPY = FloatArray(4)
+        val tfNY = FloatArray(4)
+        val tfPZ = FloatArray(4)
+        val tfNZ = FloatArray(4)
+
+        MathUtils.packTangentFrame( 0.0f,  1.0f, 0.0f, 0.0f, 0.0f, -1.0f,  1.0f,  0.0f,  0.0f, tfPX)
+        MathUtils.packTangentFrame( 0.0f,  1.0f, 0.0f, 0.0f, 0.0f, -1.0f, -1.0f,  0.0f,  0.0f, tfNX)
+        MathUtils.packTangentFrame(-1.0f,  0.0f, 0.0f, 0.0f, 0.0f, -1.0f,  0.0f,  1.0f,  0.0f, tfPY)
+        MathUtils.packTangentFrame(-1.0f,  0.0f, 0.0f, 0.0f, 0.0f,  1.0f,  0.0f, -1.0f,  0.0f, tfNY)
+        MathUtils.packTangentFrame( 0.0f,  1.0f, 0.0f, 1.0f, 0.0f,  0.0f,  0.0f,  0.0f,  1.0f, tfPZ)
+        MathUtils.packTangentFrame( 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,  0.0f,  0.0f,  0.0f, -1.0f, tfNZ)
 
         val vertexData = ByteBuffer.allocate(vertexCount * vertexSize)
                 // It is important to respect the native byte order
                 .order(ByteOrder.nativeOrder())
-                .put(Vertex(1.0f,              0.0f,              0.0f, 0xffff0000.toInt()))
-                .put(Vertex(cos(a1).toFloat(), sin(a1).toFloat(), 0.0f, 0xff00ff00.toInt()))
-                .put(Vertex(cos(a2).toFloat(), sin(a2).toFloat(), 0.0f, 0xff0000ff.toInt()))
+                // Face -Z
+                .put(Vertex(-0.5f, -0.5f, -0.5f, tfNZ))
+                .put(Vertex(-0.5f,  0.5f, -0.5f, tfNZ))
+                .put(Vertex( 0.5f,  0.5f, -0.5f, tfNZ))
+                .put(Vertex( 0.5f, -0.5f, -0.5f, tfNZ))
+                // Face +X
+                .put(Vertex( 0.5f, -0.5f, -0.5f, tfPX))
+                .put(Vertex( 0.5f,  0.5f, -0.5f, tfPX))
+                .put(Vertex( 0.5f,  0.5f,  0.5f, tfPX))
+                .put(Vertex( 0.5f, -0.5f,  0.5f, tfPX))
+                // Face +Z
+                .put(Vertex(-0.5f, -0.5f,  0.5f, tfPZ))
+                .put(Vertex( 0.5f, -0.5f,  0.5f, tfPZ))
+                .put(Vertex( 0.5f,  0.5f,  0.5f, tfPZ))
+                .put(Vertex(-0.5f,  0.5f,  0.5f, tfPZ))
+                // Face -X
+                .put(Vertex(-0.5f, -0.5f,  0.5f, tfNX))
+                .put(Vertex(-0.5f,  0.5f,  0.5f, tfNX))
+                .put(Vertex(-0.5f,  0.5f, -0.5f, tfNX))
+                .put(Vertex(-0.5f, -0.5f, -0.5f, tfNX))
+                // Face -Y
+                .put(Vertex(-0.5f, -0.5f,  0.5f, tfNY))
+                .put(Vertex(-0.5f, -0.5f, -0.5f, tfNY))
+                .put(Vertex( 0.5f, -0.5f, -0.5f, tfNY))
+                .put(Vertex( 0.5f, -0.5f,  0.5f, tfNY))
+                // Face +Y
+                .put(Vertex(-0.5f,  0.5f, -0.5f, tfPY))
+                .put(Vertex(-0.5f,  0.5f,  0.5f, tfPY))
+                .put(Vertex( 0.5f,  0.5f,  0.5f, tfPY))
+                .put(Vertex( 0.5f,  0.5f, -0.5f, tfPY))
                 // Make sure the cursor is pointing in the right place in the byte buffer
                 .flip()
 
@@ -215,10 +331,7 @@ class MainActivity : Activity() {
                 // We could use de-interleaved data by declaring two buffers and giving each
                 // attribute a different buffer index
                 .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0,             vertexSize)
-                .attribute(VertexAttribute.COLOR,    0, AttributeType.UBYTE4, 3 * floatSize, vertexSize)
-                // We store colors as unsigned bytes but since we want values between 0 and 1
-                // in the material (shaders), we must mark the attribute as normalized
-                .normalized(VertexAttribute.COLOR)
+                .attribute(VertexAttribute.TANGENTS, 0, AttributeType.FLOAT4, 3 * floatSize, vertexSize)
                 .build(engine)
 
         // Feed the vertex data to the mesh
@@ -226,15 +339,19 @@ class MainActivity : Activity() {
         vertexBuffer.setBufferAt(engine, 0, vertexData)
 
         // Create the indices
-        val indexData = ByteBuffer.allocate(vertexCount * shortSize)
+        val indexData = ByteBuffer.allocate(6 * 2 * 3 * shortSize)
                 .order(ByteOrder.nativeOrder())
-                .putShort(0)
-                .putShort(1)
-                .putShort(2)
-                .flip()
+        repeat(6) {
+            val i = (it * 4).toShort()
+            indexData
+                    .putShort(i).putShort((i + 1).toShort()).putShort((i + 2).toShort())
+                    .putShort(i).putShort((i + 2).toShort()).putShort((i + 3).toShort())
+        }
+        indexData.flip()
 
+        // 6 faces, 2 triangles per face,
         indexBuffer = IndexBuffer.Builder()
-                .indexCount(3)
+                .indexCount(vertexCount * 2)
                 .bufferType(IndexBuffer.Builder.IndexType.USHORT)
                 .build(engine)
         indexBuffer.setBuffer(engine, indexData)
@@ -243,13 +360,13 @@ class MainActivity : Activity() {
     private fun startAnimation() {
         // Animate the triangle
         animator.interpolator = LinearInterpolator()
-        animator.duration = 4000
+        animator.duration = 1000
         animator.repeatMode = ValueAnimator.RESTART
-        animator.repeatCount = ValueAnimator.INFINITE
+        animator.repeatCount = 2
         animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
             val transformMatrix = FloatArray(16)
             override fun onAnimationUpdate(a: ValueAnimator) {
-                Matrix.setRotateM(transformMatrix, 0, -(a.animatedValue as Float), 0.0f, 0.0f, 1.0f)
+                Matrix.setRotateM(transformMatrix, 0, a.animatedValue as Float, 0.0f, 1.0f, 0.0f)
                 val tcm = engine.transformManager
                 tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
             }
@@ -285,6 +402,7 @@ class MainActivity : Activity() {
         engine.destroyVertexBuffer(vertexBuffer)
         engine.destroyIndexBuffer(indexBuffer)
         engine.destroyMaterial(material)
+        engine.destroyMaterialInstance(materialInstance)
         engine.destroyView(view)
         engine.destroyScene(scene)
         engine.destroyCamera(camera)
