@@ -137,6 +137,12 @@ class MainActivity : Activity() {
             setProgress(25)
         }
 
+        var seekbar3 = SeekBar(this).apply{
+            val d = resources.displayMetrics.density
+            setProgress(50)
+
+        }
+
         seekbar2?.setOnSeekBarChangeListener(object :
                 SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seek: SeekBar,
@@ -151,7 +157,7 @@ class MainActivity : Activity() {
                 animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
                     val transformMatrix = FloatArray(16)
                     override fun onAnimationUpdate(a: ValueAnimator) {
-                        Matrix.setRotateM(transformMatrix, 0, progress + 0.0f, 1.0f, 0.0f, 0.0f)
+                        Matrix.setRotateM(transformMatrix, 0, progress/100.0f*360.0f, 1.0f, 0.0f, 0.0f)
                         //Matrix.setLookAtM(transformMatrix, 0, a.animatedValue as Float, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f)
                         val tcm = engine.transformManager
                         tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
@@ -173,12 +179,6 @@ class MainActivity : Activity() {
             }
         })
 
-        var seekbar3 = SeekBar(this).apply{
-            val d = resources.displayMetrics.density
-            setProgress(50)
-
-        }
-
         seekbar3?.setOnSeekBarChangeListener(object :
                 SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seek: SeekBar,
@@ -193,7 +193,7 @@ class MainActivity : Activity() {
                 animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
                     val transformMatrix = FloatArray(16)
                     override fun onAnimationUpdate(a: ValueAnimator) {
-                        Matrix.setRotateM(transformMatrix, 0, progress + 0.0f, 0.0f, 1.0f, 0.0f)
+                        Matrix.setRotateM(transformMatrix, 0, progress/100.0f*360.0f, 0.0f, 1.0f, 0.0f)
                         //Matrix.setLookAtM(transformMatrix, 0, a.animatedValue as Float, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f)
                         val tcm = engine.transformManager
                         tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
@@ -309,7 +309,7 @@ class MainActivity : Activity() {
                 // Intensity of the sun in lux on a clear day
                 .intensity(110_000.0f)
                 // The direction is normalized on our behalf
-                .direction(0.0f, -0.5f, -1.0f)
+                .direction(-1.0f, -1.0f, -1.0f)
                 .castShadows(true)
                 .build(engine, light)
 
