@@ -21,10 +21,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.opengl.Matrix
 import android.os.Bundle
-import android.view.Choreographer
-import android.view.Gravity
-import android.view.Surface
-import android.view.SurfaceView
+import android.view.*
 import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
 import android.widget.SeekBar
@@ -35,6 +32,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import com.google.android.filament.*
 import com.google.android.filament.RenderableManager.*
 import com.google.android.filament.VertexBuffer.*
+import com.google.android.filament.View
 import com.google.android.filament.android.UiHelper
 
 import java.nio.ByteBuffer
@@ -92,6 +90,7 @@ class MainActivity : Activity() {
 
     private val animator = ValueAnimator.ofFloat(0.0f, 360.0f)
 
+    private var pos = 0.0f
     @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -108,7 +107,7 @@ class MainActivity : Activity() {
         }
         var seekbar = SeekBar(this).apply{
             val d = resources.displayMetrics.density
-            setPadding((32 * d).toInt(), 0, (32 * d).toInt(), 0)
+            //setPadding((32 * d).toInt(), 0, (32 * d).toInt(), 0)
 
 
         }
@@ -128,8 +127,103 @@ class MainActivity : Activity() {
                 Toast.makeText(this@MainActivity,
                         "Progress is: " + seek.progress + "%",
                         Toast.LENGTH_SHORT).show()
+
             }
         })
+
+        var seekbar2 = SeekBar(this).apply{
+            val d = resources.displayMetrics.density
+            //setPadding((32 * d).toInt(), (32 * d).toInt(), (32 * d).toInt(), 0)
+            setProgress(25)
+        }
+
+        seekbar2?.setOnSeekBarChangeListener(object :
+                SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seek: SeekBar,
+                                           progress: Int, fromUser: Boolean) {
+                // write custom code for progress is changed
+
+                animator.interpolator = LinearInterpolator()
+                animator.duration = 1000
+                animator.repeatMode = ValueAnimator.RESTART
+                animator.repeatCount = 0
+                //animator.setFloatValues(0.5f)
+                animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
+                    val transformMatrix = FloatArray(16)
+                    override fun onAnimationUpdate(a: ValueAnimator) {
+                        Matrix.setRotateM(transformMatrix, 0, progress + 0.0f, 1.0f, 0.0f, 0.0f)
+                        //Matrix.setLookAtM(transformMatrix, 0, a.animatedValue as Float, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f)
+                        val tcm = engine.transformManager
+                        tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
+                    }
+                })
+                animator.start()
+
+            }
+
+            override fun onStartTrackingTouch(seek: SeekBar) {
+                // write custom code for progress is started
+            }
+
+            override fun onStopTrackingTouch(seek: SeekBar) {
+                Toast.makeText(this@MainActivity,
+                        "Seek is: " + seek.progress, Toast.LENGTH_SHORT).show()
+                animator.start()
+
+            }
+        })
+
+        var seekbar3 = SeekBar(this).apply{
+            val d = resources.displayMetrics.density
+            setProgress(50)
+
+        }
+
+        seekbar3?.setOnSeekBarChangeListener(object :
+                SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seek: SeekBar,
+                                           progress: Int, fromUser: Boolean) {
+                // write custom code for progress is changed
+
+                animator.interpolator = LinearInterpolator()
+                animator.duration = 1000
+                animator.repeatMode = ValueAnimator.RESTART
+                animator.repeatCount = 0
+                //animator.setFloatValues(0.5f)
+                animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
+                    val transformMatrix = FloatArray(16)
+                    override fun onAnimationUpdate(a: ValueAnimator) {
+                        Matrix.setRotateM(transformMatrix, 0, progress + 0.0f, 0.0f, 1.0f, 0.0f)
+                        //Matrix.setLookAtM(transformMatrix, 0, a.animatedValue as Float, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f)
+                        val tcm = engine.transformManager
+                        tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
+                    }
+                })
+                animator.start()
+
+            }
+
+            override fun onStartTrackingTouch(seek: SeekBar) {
+                // write custom code for progress is started
+            }
+
+            override fun onStopTrackingTouch(seek: SeekBar) {
+                Toast.makeText(this@MainActivity,
+                        "Seek is: " + seek.progress, Toast.LENGTH_SHORT).show()
+                animator.start()
+
+            }
+        })
+
+        val layoutParams = ConstraintLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        layoutParams.setMargins(30, 1500, 800, 0)
+        seekbar.layoutParams = layoutParams
+        val layoutParams2 = ConstraintLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        layoutParams2.setMargins(400, 1500, 400, 0)
+        seekbar2.layoutParams = layoutParams2
+        val layoutParams3 = ConstraintLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        layoutParams3.setMargins(800, 1500, 30, 0)
+        seekbar3.layoutParams = layoutParams3
 
         setContentView(FrameLayout(this).apply {
             addView(textView, FrameLayout.LayoutParams(
@@ -138,6 +232,8 @@ class MainActivity : Activity() {
                     Gravity.CENTER_VERTICAL
             ))
             addView(seekbar)
+            addView(seekbar2)
+            addView(seekbar3)
             addView(surfaceView)
 
         })
@@ -228,7 +324,6 @@ class MainActivity : Activity() {
         // Move the camera back to see the object
         camera.lookAt(0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
 
-        startAnimation()
     }
 
     private fun loadMaterial() {
@@ -362,7 +457,7 @@ class MainActivity : Activity() {
         animator.interpolator = LinearInterpolator()
         animator.duration = 1000
         animator.repeatMode = ValueAnimator.RESTART
-        animator.repeatCount = 2
+        animator.repeatCount = 0
         animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
             val transformMatrix = FloatArray(16)
             override fun onAnimationUpdate(a: ValueAnimator) {
