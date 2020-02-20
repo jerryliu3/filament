@@ -28,20 +28,15 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
-
 import com.google.android.filament.*
-import com.google.android.filament.RenderableManager.*
-import com.google.android.filament.VertexBuffer.*
+import com.google.android.filament.RenderableManager.PrimitiveType
+import com.google.android.filament.VertexBuffer.AttributeType
+import com.google.android.filament.VertexBuffer.VertexAttribute
 import com.google.android.filament.View
 import com.google.android.filament.android.UiHelper
-
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.Channels
-
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 class MainActivity : Activity() {
     // Make sure to initialize Filament first
@@ -90,7 +85,6 @@ class MainActivity : Activity() {
 
     private val animator = ValueAnimator.ofFloat(0.0f, 360.0f)
 
-    private var pos = 0.0f
     @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -143,6 +137,8 @@ class MainActivity : Activity() {
 
         }
 
+        var xPos = 1.0f
+        var yPos = 1.0f
         seekbar2?.setOnSeekBarChangeListener(object :
                 SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seek: SeekBar,
@@ -157,7 +153,8 @@ class MainActivity : Activity() {
                 animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
                     val transformMatrix = FloatArray(16)
                     override fun onAnimationUpdate(a: ValueAnimator) {
-                        Matrix.setRotateM(transformMatrix, 0, progress/100.0f*360.0f, 1.0f, 0.0f, 0.0f)
+                        xPos = 0.01f + progress/100.0f*359.99f
+                        Matrix.setRotateM(transformMatrix, 0, xPos, 1.0f, yPos/xPos, 0.0f)
                         //Matrix.setLookAtM(transformMatrix, 0, a.animatedValue as Float, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f)
                         val tcm = engine.transformManager
                         tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
@@ -193,7 +190,8 @@ class MainActivity : Activity() {
                 animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
                     val transformMatrix = FloatArray(16)
                     override fun onAnimationUpdate(a: ValueAnimator) {
-                        Matrix.setRotateM(transformMatrix, 0, progress/100.0f*360.0f, 0.0f, 1.0f, 0.0f)
+                        yPos = 0.01f + progress/100.0f*359.99f
+                        Matrix.setRotateM(transformMatrix, 0, yPos, xPos/yPos, 1.0f, 0.0f)
                         //Matrix.setLookAtM(transformMatrix, 0, a.animatedValue as Float, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f)
                         val tcm = engine.transformManager
                         tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
@@ -327,7 +325,7 @@ class MainActivity : Activity() {
     }
 
     private fun loadMaterial() {
-        readUncompressedAsset("materials/lit.filamat").let {
+        readUncompressedAsset("materials/lit_sphere.filamat").let {
             material = Material.Builder().payload(it, it.remaining()).build(engine)
         }
     }
@@ -344,6 +342,10 @@ class MainActivity : Activity() {
         materialInstance.setParameter("metallic", 0.0f)
         // We increase the roughness to spread the specular highlights
         materialInstance.setParameter("roughness", 0.3f)
+
+        materialInstance.setParameter("metallicReflectance", 0.5f)
+
+
     }
 
     private fun createMesh() {
